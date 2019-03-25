@@ -25,16 +25,27 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.CalendarContract;
 import android.provider.CallLog;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
+import android.provider.CalendarContract.Calendars;
+import android.provider.CalendarContract.Events;
+import android.provider.CalendarContract.Colors;
 
 import com.csipsimple.api.SipCallSession;
 import com.csipsimple.api.SipManager;
 import com.csipsimple.models.CallerInfo;
 import com.csipsimple.models.Filter;
 
+import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static android.telephony.PhoneStateListener.*;
 
 public class CallLogHelper {
 
@@ -44,7 +55,31 @@ public class CallLogHelper {
 	// Provider name
 	public static final String EXTRA_SIP_PROVIDER = "provider";
     private static final String THIS_FILE = "CallLogHelper";
-	
+    private static final String GOOGLE_CONTACTS_SEARCH_URI ="https://contacts.google.com/search/";
+    // プロジェクション配列。
+	// 取得したいプロパティの一覧を指定する。
+	private static final String[] CALENDAR_PROJECTION = new String[] {
+			Calendars._ID,
+			Calendars.NAME,
+			Calendars.ACCOUNT_NAME,
+			Calendars.ACCOUNT_TYPE,
+	};
+
+	// プロジェクション配列
+	private static final String[] COLOR_PROJECTION = new String[] {
+			Colors._ID,
+			Colors.COLOR,
+			Colors.COLOR_KEY,
+			Colors.COLOR_TYPE,
+			Colors.ACCOUNT_NAME,
+			Colors.ACCOUNT_TYPE,
+	};
+	// プロジェクション配列のインデックス。
+	// パフォーマンス向上のために、動的に取得せずに、静的に定義しておく。
+	private static final int CALENDAR_PROJECTION_IDX_ID = 0;
+	private static final int CALENDAR_PROJECTION_IDX_NAME = 1;
+	private static final int CALENDAR_PROJECTION_IDX_ACCOUNT_NAME = 2;
+	private static final int CALENDAR_PROJECTION_IDX_ACCOUNT_TYPE = 3;
 
 	public static void addCallLog(Context context, ContentValues values, ContentValues extraValues) {
 		ContentResolver contentResolver = context.getContentResolver();
@@ -64,6 +99,36 @@ public class CallLogHelper {
 				broadcast.putExtra(EXTRA_SIP_PROVIDER, provider);
 			}
 			context.sendBroadcast(broadcast);
+			//Log.setLogLevel(4);
+			// カレンダーに追加
+			String query = "(" + Calendars.NAME + "= ?)";
+			String[] args = new String[]{"通話履歴"};
+			Cursor cur = contentResolver.query(Calendars.CONTENT_URI, CALENDAR_PROJECTION, query, args, null);
+			cur.moveToFirst();
+			String id = cur.getString(CALENDAR_PROJECTION_IDX_ID);
+			String name = cur.getString(CALENDAR_PROJECTION_IDX_NAME);
+			String accountName = cur.getString(CALENDAR_PROJECTION_IDX_ACCOUNT_NAME);
+			String accountType = cur.getString(CALENDAR_PROJECTION_IDX_ACCOUNT_TYPE);
+			ContentValues event = new ContentValues();
+			String title = values.getAsString(CallLog.Calls.CACHED_NAME);
+			long start = values.getAsLong(CallLog.Calls.DATE);
+			long end = start + values.getAsLong(CallLog.Calls.DURATION);
+			int type = values.getAsInteger(CallLog.Calls.TYPE);
+			String number = values.getAsString(CallLog.Calls.NUMBER);
+			event.put(CalendarContract.Events.CALENDAR_ID, id);
+			event.put(CalendarContract.Events.TITLE, title);
+			event.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+			event.put(CalendarContract.Events.DTSTART, start);
+			event.put(Events.EVENT_COLOR_KEY, String.valueOf(type));
+			event.put(Events.DESCRIPTION,  "<a href=\"" +GOOGLE_CONTACTS_SEARCH_URI + number
+				+ "\">" + number + "</a>");
+			event.put(Events.DTEND, end);
+			Log.d(THIS_FILE, "title = " + title);
+			Log.d(THIS_FILE, "start = " + start);
+			Log.d(THIS_FILE, "end = " + end);
+			Log.d(THIS_FILE, "type = " + type);
+			Uri uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, event);
+			Log.d(THIS_FILE, uri.toString());
 		}
 	}
 	

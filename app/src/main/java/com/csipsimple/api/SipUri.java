@@ -187,10 +187,20 @@ public final class SipUri {
             String remoteContact = uri.toString();
             ParsedSipContactInfos parsedInfos = parseSipContact(remoteContact);
 
+            if (!TextUtils.isEmpty(parsedInfos.domain)) {
+                remoteContact = parsedInfos.domain;
+            }
             if (!TextUtils.isEmpty(parsedInfos.displayName)) {
+                remoteContact = "";
                 // If available prefer the display name
-                remoteContact = parsedInfos.displayName;
+                if (!TextUtils.isEmpty(parsedInfos.domain)) {
+                    remoteContact += parsedInfos.domain + ":";
+                }
+                remoteContact += parsedInfos.displayName;
             } else if (!TextUtils.isEmpty(parsedInfos.userName)) {
+                if (!TextUtils.isEmpty(parsedInfos.domain)) {
+                    remoteContact += parsedInfos.domain + ":";
+                }
                 // Else, if available choose the username
                 remoteContact = parsedInfos.userName;
             }

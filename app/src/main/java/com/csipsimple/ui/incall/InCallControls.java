@@ -181,7 +181,7 @@ public class InCallControls extends FrameLayout implements MenuBuilder.Callback 
     		enabled = callOngoing && lastMediaState.canBluetoothSco;
     		checked = lastMediaState.isBluetoothScoOn;
 		}
-        btnMenuBuilder.findItem(R.id.bluetoothButton).setVisible(enabled).setChecked(checked);
+        //btnMenuBuilder.findItem(R.id.bluetoothButton).setVisible(enabled).setChecked(checked);
         
         // Mic
         if(lastMediaState == null) {
@@ -191,7 +191,7 @@ public class InCallControls extends FrameLayout implements MenuBuilder.Callback 
             enabled = callOngoing && lastMediaState.canMicrophoneMute;
             checked = lastMediaState.isMicrophoneMute;
         }
-        btnMenuBuilder.findItem(R.id.muteButton).setVisible(enabled).setChecked(checked);
+        //btnMenuBuilder.findItem(R.id.muteButton).setVisible(enabled).setChecked(checked);
         
 
         // Speaker
@@ -204,10 +204,10 @@ public class InCallControls extends FrameLayout implements MenuBuilder.Callback 
             enabled = callOngoing && lastMediaState.canSpeakerphoneOn;
             checked = lastMediaState.isSpeakerphoneOn;
         }
-        btnMenuBuilder.findItem(R.id.speakerButton).setVisible(enabled).setChecked(checked);
+        //btnMenuBuilder.findItem(R.id.speakerButton).setVisible(enabled).setChecked(checked);
         
         // Add call
-        btnMenuBuilder.findItem(R.id.addCallButton).setVisible(supportMultipleCalls && callOngoing);
+        //btnMenuBuilder.findItem(R.id.addCallButton).setVisible(supportMultipleCalls && callOngoing);
 	}
 
     @Override

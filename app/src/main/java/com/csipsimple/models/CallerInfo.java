@@ -48,6 +48,7 @@ public class CallerInfo {
 
     public long personId;
     public String name;
+    public String note;
 
     public String phoneNumber;
     public String phoneLabel;

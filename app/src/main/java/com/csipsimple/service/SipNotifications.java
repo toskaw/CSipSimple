@@ -278,13 +278,31 @@ public class SipNotifications {
                 remoteInfo.append(callerInfo.name);
                 remoteInfo.append(" <");
                 remoteInfo.append(SipUri.getCanonicalSipContact(remoteContact));
-                remoteInfo.append(">");
+                remoteInfo.append(">\n");
+				remoteInfo.append(callerInfo.note);
                 formattedRemoteContact = remoteInfo.toString();
             }
         }
         return formattedRemoteContact;
 	}
-	
+
+	/**
+	 * Format the remote contact name for the call info
+	 * @param callInfo the callinfo to format
+	 * @return the name to display for the contact
+	 */
+	private String formatNotificationSubText(String remoteContact) {
+		String formattedRemoteContact = "";
+		if(resolveContacts) {
+			CallerInfo callerInfo = CallerInfo.getCallerInfoFromSipUri(context, remoteContact);
+			if (callerInfo != null && callerInfo.contactExists ) {
+				StringBuilder remoteInfo = new StringBuilder();
+				remoteInfo.append(callerInfo.note);
+				formattedRemoteContact = remoteInfo.toString();
+			}
+		}
+		return formattedRemoteContact;
+	}
 	/**
 	 * Format the notification title for a call info
 	 * @param title
@@ -325,6 +343,7 @@ public class SipNotifications {
         inCallNotification.setContentTitle(formatNotificationTitle(R.string.ongoing_call, callInfo.getAccId()));
         inCallNotification.setContentText(formatRemoteContactString(callInfo.getRemoteContact()));
 		inCallNotification.setContentIntent(contentIntent);
+		//inCallNotification.setSubText(formatNotificationSubText(callInfo.getRemoteContact()));
 
 		Notification notification = inCallNotification.build();
 		notification.flags |= Notification.FLAG_NO_CLEAR;
@@ -355,7 +374,7 @@ public class SipNotifications {
 		missedCallNotification.setContentTitle(formatNotificationTitle(R.string.missed_call, accId));
 		missedCallNotification.setContentText(formatRemoteContactString(remoteContact));
 		missedCallNotification.setContentIntent(contentIntent);
-		
+		//missedCallNotification.setSubText(formatNotificationSubText(remoteContact));
 		notificationManager.notify(CALLLOG_NOTIF_ID, missedCallNotification.build());
 	}
 

@@ -35,8 +35,10 @@ import android.database.SQLException;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds;
@@ -52,6 +54,8 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import 	android.accounts.Account;
+import android.accounts.AccountManager;
 
 import com.csipsimple.R;
 import com.csipsimple.api.SipManager;
@@ -61,9 +65,21 @@ import com.csipsimple.utils.Compatibility;
 import com.csipsimple.utils.Log;
 import com.csipsimple.utils.PreferencesProviderWrapper;
 
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.net.ssl.HttpsURLConnection;
 
 @TargetApi(5)
 public class ContactsUtils5 extends ContactsWrapper {
@@ -90,9 +106,22 @@ public class ContactsUtils5 extends ContactsWrapper {
 
     public Bitmap getContactPhoto(Context ctxt, Uri uri, boolean hiRes, Integer defaultResource) {
         Bitmap img = null;
-        InputStream s = ContactsContract.Contacts.openContactPhotoInputStream(
-                ctxt.getContentResolver(), uri);
-        img = BitmapFactory.decodeStream(s);
+        Uri jpnumber = Uri.parse("android.resource://com.csipsimple/"+R.drawable.logo_jpnumber);
+        if (uri.equals(jpnumber)) {
+            try {
+                InputStream inputStream = ctxt.getContentResolver().openInputStream(uri);
+                Log.d("com.csipsimple", inputStream.toString());
+                img = BitmapFactory.decodeStream(inputStream);
+            }catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Log.e("com.csipsimple", jpnumber.toString());
+            }
+        }
+        else {
+            InputStream s = ContactsContract.Contacts.openContactPhotoInputStream(
+                    ctxt.getContentResolver(), uri);
+            img = BitmapFactory.decodeStream(s);
+        }
 
         if (img == null && defaultResource != null) {
             BitmapDrawable drawableBitmap = ((BitmapDrawable) ctxt.getResources().getDrawable(
@@ -220,8 +249,37 @@ public class ContactsUtils5 extends ContactsWrapper {
                     ContentValues cv = new ContentValues();
                     DatabaseUtils.cursorRowToContentValues(cursor, cv);
                     callerInfo.contactExists = true;
+
+                    // Get Organizations.........
+                    String company = "";
+                    String orgWhere = ContactsContract.Data.CONTACT_ID + " = ? AND " + ContactsContract.Data.MIMETYPE + " = ?";
+                    String[] orgWhereParams = new String[]{cv.getAsString(PhoneLookup._ID),
+                            ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE};
+                    Cursor orgCur = ctxt.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                            null, orgWhere, orgWhereParams, null);
+                    if (orgCur.moveToFirst()) {
+                        company = orgCur.getString(orgCur.getColumnIndex(CommonDataKinds.Organization.COMPANY));
+                    }
+                    orgCur.close();
+                    // Get Note
+                    String note = "";
+                    String noteWhere = ContactsContract.Data.CONTACT_ID + " = ? AND " + ContactsContract.Data.MIMETYPE + " = ?";
+                    String[] noteWhereParams = new String[]{cv.getAsString(PhoneLookup._ID),
+                            CommonDataKinds.Note.CONTENT_ITEM_TYPE};
+                    Cursor noteCur = ctxt.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                            null, noteWhere, noteWhereParams, null);
+                    if (noteCur.moveToFirst()) {
+                        note = noteCur.getString(noteCur.getColumnIndex(CommonDataKinds.Note.NOTE));
+                        callerInfo.note = note;
+                    }
+                    noteCur.close();
                     if (cv.containsKey(PhoneLookup.DISPLAY_NAME)) {
-                        callerInfo.name = cv.getAsString(PhoneLookup.DISPLAY_NAME);
+                        if (company.isEmpty()) {
+                            callerInfo.name = cv.getAsString(PhoneLookup.DISPLAY_NAME);
+                        }
+                        else {
+                            callerInfo.name = company + ":" + cv.getAsString(PhoneLookup.DISPLAY_NAME);
+                        }
                     }
 
                     callerInfo.phoneNumber = cv.getAsString(PhoneLookup.NUMBER);
@@ -251,10 +309,14 @@ public class ContactsUtils5 extends ContactsWrapper {
                         callerInfo.photoId = cv.getAsLong(PhoneLookup.PHOTO_ID);
                     }
 
-                    if (cv.containsKey(PhoneLookup.PHOTO_URI)) {
-                        String cPu = cv.getAsString(PhoneLookup.PHOTO_URI);
-                        if(!TextUtils.isEmpty(cPu)) {
-                            callerInfo.photoUri = Uri.parse(cPu);
+                    if (Compatibility.isCompatible(11)) {
+                        if (Compatibility.isCompatible(11)) {
+                            if (cv.containsKey(PhoneLookup.PHOTO_URI)) {
+                                String cPu = cv.getAsString(PhoneLookup.PHOTO_URI);
+                                if(!TextUtils.isEmpty(cPu)) {
+                                    callerInfo.photoUri = Uri.parse(cPu);
+                                }
+                            }
                         }
                     }
 
@@ -275,11 +337,211 @@ public class ContactsUtils5 extends ContactsWrapper {
         // fill in the original number value we used to query with.
         if (TextUtils.isEmpty(callerInfo.phoneNumber)) {
             callerInfo.phoneNumber = number;
+            //Log.setLogLevel(4);
+
+
+            // jpnumber request
+            if (!isCurrent()) {
+                // search jpnumber
+                HttpsURLConnection con = null;
+                StringBuffer result = new StringBuffer();
+                String strGetUrl = "https://www.jpnumber.com/searchnumber.do?number=";
+                strGetUrl += number;
+                try {
+
+                    URL url = new URL(strGetUrl);
+
+                    con = (HttpsURLConnection) url.openConnection();
+
+
+                    con.setRequestMethod("GET");
+                    con.connect();
+
+                    // HTTPレスポンスコード
+                    final int status = con.getResponseCode();
+                    if (status == HttpURLConnection.HTTP_OK) {
+                        // 通信に成功した
+                        // テキストを取得する
+                        final InputStream in = con.getInputStream();
+                        String encoding = con.getContentEncoding();
+                        if(null == encoding){
+                            encoding = "UTF-8";
+                        }
+                        final InputStreamReader inReader = new InputStreamReader(in, encoding);
+                        final BufferedReader bufReader = new BufferedReader(inReader);
+                        String line = null;
+                        // 1行ずつテキストを読み込む
+                        while((line = bufReader.readLine()) != null) {
+                            result.append(line);
+                        }
+                        bufReader.close();
+                        inReader.close();
+                        in.close();
+                        int index = result.indexOf("事業者名：");
+                        if (index != -1 && result.indexOf("<span class=\"number-text15\">1</span>") != -1) {
+                            if (result.substring(index + 6, index + 12).equals("strong")) {
+                                int start = result.indexOf(">", index + 13);
+                                int name_end = result.indexOf("<", start + 1);
+                                callerInfo.name = result.substring(start + 1, name_end);
+                                callerInfo.contactExists = true;
+                               // 連絡先登録
+                                String accs_type = "com.google";
+                                if(Build.MANUFACTURER.equals("Amazon")){
+                                    accs_type ="com.amazon.pim.account.google";
+                                }
+                                Account[] accs = AccountManager.get(ctxt).getAccountsByType(accs_type);
+                                // 現在のrawContactId取得
+                                ContentValues values = new ContentValues();
+                                values.put(ContactsContract.RawContacts.ACCOUNT_TYPE, accs_type);
+                                values.put(RawContacts.ACCOUNT_NAME, accs[0].name);
+                                values.put(RawContacts.DIRTY, 1);
+                                Uri rawContactsUri = ctxt.getContentResolver().insert(
+                                        ContactsContract.RawContacts.CONTENT_URI, values);
+                                long rawContactId = ContentUris.parseId(rawContactsUri);
+
+                                values.clear(); // データクリア
+
+                                // 連絡先名登録
+                                values.put(Data.RAW_CONTACT_ID, rawContactId);
+                                values.put(Data.MIMETYPE, CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+                                values.put(CommonDataKinds.StructuredName.DISPLAY_NAME, callerInfo.name);
+                                // 登録
+                                ctxt.getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+
+                                values.clear(); // データクリア
+
+                                // 番号登録
+                                values.put(Data.RAW_CONTACT_ID, rawContactId);
+                                values.put(Data.MIMETYPE, CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
+                                values.put(CommonDataKinds.Phone.NUMBER, number);
+                                values.put(CommonDataKinds.Phone.TYPE, CommonDataKinds.Phone.TYPE_COMPANY_MAIN);
+                                // 登録
+                                ctxt.getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+
+                                values.clear(); // データクリア
+
+                                // 画像登録
+                                Bitmap img = null;
+                                Uri jpnumber = Uri.parse("android.resource://com.csipsimple/"+R.drawable.logo_jpnumber);
+                                try {
+                                    InputStream inputStream = ctxt.getContentResolver().openInputStream(jpnumber);
+                                    img = BitmapFactory.decodeStream(inputStream);
+                                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                    img.compress(Bitmap.CompressFormat.PNG, 100, baos);
+
+                                    values.put(Data.RAW_CONTACT_ID, rawContactId);
+                                    values.put(Data.MIMETYPE, CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
+                                    values.put(CommonDataKinds.Photo.PHOTO, baos.toByteArray());
+                                    // 登録
+                                    ctxt.getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+
+                                    values.clear(); // データクリア
+
+                                    try {
+                                        cursor = ctxt.getContentResolver().query(searchUri, projection, null, null, null);
+                                    }catch(SQLException e) {
+                                        Log.e(THIS_FILE, "Stock contact app is not able to resolve contacts", e);
+                                    }
+                                    if (cursor != null) {
+                                        try {
+                                            if (cursor.getCount() > 0) {
+                                                cursor.moveToFirst();
+
+                                                ContentValues cv = new ContentValues();
+                                                DatabaseUtils.cursorRowToContentValues(cursor, cv);
+                                                if (cv.containsKey(PhoneLookup._ID)) {
+                                                    callerInfo.personId = cv.getAsLong(PhoneLookup._ID);
+                                                    callerInfo.contactContentUri = ContentUris.withAppendedId(
+                                                            Contacts.CONTENT_URI, callerInfo.personId);
+                                                }
+
+                                                if (cv.containsKey(PhoneLookup.PHOTO_ID) && cv.getAsLong(PhoneLookup.PHOTO_ID) != null) {
+                                                    callerInfo.photoId = cv.getAsLong(PhoneLookup.PHOTO_ID);
+                                                }
+
+                                                if (cv.containsKey(PhoneLookup.PHOTO_URI)) {
+                                                    String cPu = cv.getAsString(PhoneLookup.PHOTO_URI);
+                                                    if(!TextUtils.isEmpty(cPu)) {
+                                                        callerInfo.photoUri = Uri.parse(cPu);
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) {
+                                            Log.e(THIS_FILE, "Exception while retrieving cursor infos", e);
+                                        } finally {
+                                            cursor.close();
+                                        }
+
+                                    }
+                                }catch (FileNotFoundException e) {
+                                    e.printStackTrace();
+                                    Log.e("com.csipsimple", jpnumber.toString());
+                                }
+
+
+                            }
+                        }
+                    }
+
+                }catch (Exception e1) {
+                    e1.printStackTrace();
+                } finally {
+                    if (con != null) {
+                        // コネクションを切断
+                        con.disconnect();
+                    }
+                }
+                if (callerInfo.name == null) {
+                    // 連絡先登録
+                    String accs_type = "com.google";
+                    if(Build.MANUFACTURER.equals("Amazon")){
+                        accs_type ="com.amazon.pim.account.google";
+                    }
+
+                    Account[] accounts = AccountManager.get(ctxt).getAccountsByType(accs_type);
+                    for (Account acc : accounts){
+                        Log.d("@@@@com.csipsimple", "account name = " + acc.name + ", type = " + acc.type);
+                    }
+                    // 現在のrawContactId取得
+                    ContentValues values = new ContentValues();
+                    values.put(ContactsContract.RawContacts.ACCOUNT_TYPE, accs_type);
+                    values.put(RawContacts.ACCOUNT_NAME, accounts[0].name);
+                    values.put(RawContacts.DIRTY, 1);
+
+                    Uri rawContactsUri = ctxt.getContentResolver().insert(
+                            ContactsContract.RawContacts.CONTENT_URI, values);
+                    long rawContactId = ContentUris.parseId(rawContactsUri);
+
+                    values.clear(); // データクリア
+
+                    // 連絡先名登録
+                    values.put(Data.RAW_CONTACT_ID, rawContactId);
+                    values.put(Data.MIMETYPE, CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+                    values.put(CommonDataKinds.StructuredName.DISPLAY_NAME, "未登録"+ number.toString());
+                    // 登録
+                    ctxt.getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+
+                    values.clear(); // データクリア
+
+                    // 番号登録
+                    values.put(Data.RAW_CONTACT_ID, rawContactId);
+                    values.put(Data.MIMETYPE, CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
+                    values.put(CommonDataKinds.Phone.NUMBER, number);
+                    values.put(CommonDataKinds.Phone.TYPE, CommonDataKinds.Phone.TYPE_MAIN);
+                    // 登録
+                    callerInfo.contactContentUri = ctxt.getContentResolver().insert(ContactsContract.Data.CONTENT_URI, values);
+                    // ID取得
+                    callerInfo.personId = ContentUris.parseId(callerInfo.contactContentUri);
+                    callerInfo.name = "未登録" + number;
+                }
+            }
         }
 
         return callerInfo;
     }
-    
+    private boolean isCurrent(){
+        return Thread.currentThread().equals(Looper.getMainLooper().getThread());
+    }
     private String getContactDataCustomProtocolFilter(String protocol) {
         return String.format(" %s='%s' AND %s=%s AND LOWER(%s)='%s'",
                 Data.MIMETYPE, CommonDataKinds.Im.CONTENT_ITEM_TYPE,

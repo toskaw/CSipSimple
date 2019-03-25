@@ -42,8 +42,14 @@ import com.csipsimple.R;
 import com.csipsimple.models.CallerInfo;
 import com.csipsimple.utils.contacts.ContactsWrapper;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+import javax.net.ssl.HttpsURLConnection;
 
 public class ContactsAsyncHelper extends Handler {
     private static final String THIS_FILE = "ContactsAsyncHelper";
@@ -73,6 +79,7 @@ public class ContactsAsyncHelper extends Handler {
     private static final int EVENT_LOAD_IMAGE = 1;
     private static final int EVENT_LOAD_IMAGE_URI = 2;
     private static final int EVENT_LOAD_CONTACT_URI = 3;
+    private static final int EVENT_LOAD_JPPHONE_NUMBER = 4;
     private static final int DEFAULT_TOKEN = -1;
     private static final int TAG_PHOTO_INFOS = R.id.icon;
     private static ContactsWrapper contactsWrapper;
@@ -267,6 +274,7 @@ public class ContactsAsyncHelper extends Handler {
 
         preloadImage(imageView, placeholderImageResource, msg);
     }
+
 
     public static void updateImageViewWithContactPhotoAsync(Context context, ImageView imageView,
             Uri photoUri, int placeholderImageResource) {
