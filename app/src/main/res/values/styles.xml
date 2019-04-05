@@ -22,7 +22,7 @@
         <item name="android:layout_height">68dip</item>
     </style>
 
-    <style name="TextAppearance.SlidingTabNormal" parent="@android:attr/textAppearanceMedium">
+    <style name="TextAppearance.SlidingTabNormal" parent="@style/TextAppearance.AppCompat.Medium">
         <item name="android:textColor">?android:attr/textColorTertiary</item>
         <item name="android:textSize">28sp</item>
         <item name="android:shadowDx">0.0</item>
@@ -31,7 +31,7 @@
         <item name="android:shadowColor">@android:color/black</item>
     </style>
 
-    <style name="TextAppearance.SlidingTabActive" parent="@android:attr/textAppearanceMedium">
+    <style name="TextAppearance.SlidingTabActive" parent="@style/TextAppearance.AppCompat.Medium">
         <item name="android:textColor">@android:color/black</item>
         <item name="android:textSize">28sp</item>
     </style>

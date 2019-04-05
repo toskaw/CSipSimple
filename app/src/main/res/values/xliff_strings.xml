@@ -18,7 +18,7 @@
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-    <string name="callDetailsDurationFormat"><xliff:g id="minutes" example="42">%s</xliff:g> mins <xliff:g id="seconds" example="28">%s</xliff:g> secs</string>
+    <string name="callDetailsDurationFormat"><xliff:g id="minutes" example="42">%1$s</xliff:g> mins <xliff:g id="seconds" example="28">%2$s</xliff:g> secs</string>
 
     <!-- Error message indicating the format for the specified media type (e.g. "picture") is unsupported -->
     <string name="unsupported_media_format">Unsupported <xliff:g id="name">%1$s</xliff:g> format</string>
