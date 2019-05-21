@@ -1,6 +1,10 @@
 package com.csipsimple.wizards.impl;
 
 import com.csipsimple.api.SipProfile;
+import com.csipsimple.wizards.utils.AccountCreationFirstView;
+import com.csipsimple.wizards.utils.AccountCreationFirstView.OnAccountCreationFirstViewListener;
+import com.csipsimple.wizards.utils.AccountCreationWebview;
+
 
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -14,7 +18,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HikariDenwa extends Expert {
+public class HikariDenwa extends Expert implements AccountCreationWebview.OnAccountCreationDoneListener, OnAccountCreationFirstViewListener {
 
     private static class AccountBalanceList extends AccountBalanceHelper {
         WeakReference<HikariDenwa> w;
@@ -44,6 +48,50 @@ public class HikariDenwa extends Expert {
 
         }
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onAccountCreationDone(String username, String password) {
+        // Actually useless here as they do a weird way to go back in the
+        // application
+        // Probably necessary for iPhone but absolutely useless in android as we
+        // can inject
+        // A javascript api to the webview so that user experience is better ! ;)
+        setUsername(username);
+        setPassword(password);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onAccountCreationDone(String username, String password, String extra) {
+        onAccountCreationDone(username, password);
+    }
+    @Override
+    public boolean saveAndQuit() {
+        if (canSave()) {
+            parent.saveAndFinish();
+            return true;
+        }
+        return false;
+    }
+
+
+
+    @Override
+    public void onCreateAccountRequested() {
+        setFirstViewVisibility(false);
+        extAccCreator.show();
+    }
+
+    @Override
+    public void onEditAccountRequested() {
+        setFirstViewVisibility(false);
+    }
+
     private static class AccountBalance extends AccountBalanceHelper {
         WeakReference<HikariDenwa> w;
 
